@@ -1,6 +1,5 @@
 'use client'
 
-import {useActionState} from 'react'
 import {useFormStatus} from 'react-dom'
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,12 +13,10 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { SignIn, signInSchema } from "@/app/lib/definitions";
-import { signIn } from "@/app/actions/auth";
+import { type SignIn, signInSchema } from "@/app/lib/definitions";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 export const SignInForm = () => {
-    const [state, action] = useActionState(signIn, undefined)
-
     const form = useForm<SignIn>({
         resolver: zodResolver(signInSchema),
         defaultValues: {
@@ -28,14 +25,31 @@ export const SignInForm = () => {
         }
     })
 
+    const {data, mutate, error, isPending, isError} = useMutation({
+        mutationKey: ['auth', 'signin'],
+        mutationFn: async (values: SignIn) => {
+            try {
+                const res = await fetch('http://localhost:8001/auth/signin', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(values)
+                })
+                return await res.json()
+            } catch (err) {
+                return err
+            }
+        }
+    })
+
     const handleSubmit = (values: SignIn) => {
-        console.log(values);
-        action(values)
+        mutate(values)
     }
+
     return (
         <Form {...form}>
             <form
-                action={action}
                 onSubmit={form.handleSubmit(handleSubmit)}
                 className='flex flex-col gap-4'
             >
@@ -49,7 +63,6 @@ export const SignInForm = () => {
                                 <Input placeholder={'email@email.com'} {...field} />
                             </FormControl>
                             <FormMessage/>
-                            {state?.errors?.email && <p>{state.errors.email}</p>}
                         </FormItem>
                     )}
                 />
@@ -63,22 +76,16 @@ export const SignInForm = () => {
                                 <Input type='password' placeholder={'********'} {...field} />
                             </FormControl>
                             <FormMessage/>
-                            {state?.errors?.password && <p>{state.errors.password}</p>}
                         </FormItem>
                     )}
                 />
-                <SubmitButton />
+                <Button type={'submit'} disabled={isPending}>
+                    Войти
+                </Button>
+
+                <pre>{JSON.stringify(data)}</pre>
+                <pre>isError - {JSON.stringify(error)}</pre>
             </form>
         </Form>
     );
-}
-
-function SubmitButton() {
-    const {pending} = useFormStatus()
-
-    return (
-        <Button type={'submit'} disabled={pending}>
-            Войти
-        </Button>
-    )
 }
